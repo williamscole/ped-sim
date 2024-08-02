@@ -38,6 +38,9 @@ class CmdLineOpts {
     // Output filename prefix
     static char *outPrefix;
 
+    // Founder order file
+    static char *founderOrderFile;
+
     // Should we seed the random number generator using std::random_device()?
     // If false, will use user-supplied value below
     static bool autoSeed;

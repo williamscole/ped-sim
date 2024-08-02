@@ -17,6 +17,7 @@ char  *CmdLineOpts::mapFile = NULL;
 char  *CmdLineOpts::interfereFile = NULL;
 char  *CmdLineOpts::inVCFfile = NULL;
 char  *CmdLineOpts::outPrefix = NULL;
+char  *CmdLineOpts::founderOrderFile = NULL;
 bool   CmdLineOpts::autoSeed = true;
 unsigned int CmdLineOpts::randSeed;
 int    CmdLineOpts::printFam = 0;
@@ -36,6 +37,7 @@ char  *CmdLineOpts::vcfSexesFile = NULL;
 
 // Parses the command line options for the program.
 bool CmdLineOpts::parseCmdLineOptions(int argc, char **argv) {
+
   enum {
     RAND_SEED = CHAR_MAX + 1,
     INTERFERENCE,
@@ -46,6 +48,7 @@ bool CmdLineOpts::parseCmdLineOptions(int argc, char **argv) {
     PSEUDO_HAP_RATE,
     FIXED_CO,
     SEXES,
+    FOUNDER_ORDER,
   };
 
   // This is a local variable because whenever <interfereFile> is NULL, the
@@ -54,27 +57,28 @@ bool CmdLineOpts::parseCmdLineOptions(int argc, char **argv) {
   int poisson = 0;
 
   static struct option const longopts[] =
-  {
-    {"intf", required_argument, NULL, INTERFERENCE},
-    {"pois", no_argument, &poisson, 1},
-    {"seed", required_argument, NULL, RAND_SEED},
-    {"sexes", required_argument, NULL, SEXES},
-    {"fam", no_argument, &CmdLineOpts::printFam, 1},
-    {"bp", no_argument, &CmdLineOpts::printBP, 1},
-    {"mrca", no_argument, &CmdLineOpts::printMRCA, 1},
-    {"nogz", no_argument, &CmdLineOpts::nogz, 1},
-    {"keep_phase", no_argument, &CmdLineOpts::keepPhase, 1},
-    {"founder_ids", no_argument, &CmdLineOpts::printFounderIds, 1},
-    {"retain_extra", required_argument, NULL, RETAIN_EXTRA},
-    {"err_rate", required_argument, NULL, ERR_RATE},
-    {"err_hom_rate", required_argument, NULL, ERR_HOM_RATE},
-    {"miss_rate", required_argument, NULL, MISS_RATE},
-    {"pseudo_hap", required_argument, NULL, PSEUDO_HAP_RATE},
+{
+  {"intf", required_argument, NULL, INTERFERENCE},
+  {"pois", no_argument, &poisson, 1},
+  {"seed", required_argument, NULL, RAND_SEED},
+  {"sexes", required_argument, NULL, SEXES},
+  {"fam", no_argument, &CmdLineOpts::printFam, 1},
+  {"bp", no_argument, &CmdLineOpts::printBP, 1},
+  {"mrca", no_argument, &CmdLineOpts::printMRCA, 1},
+  {"nogz", no_argument, &CmdLineOpts::nogz, 1},
+  {"keep_phase", no_argument, &CmdLineOpts::keepPhase, 1},
+  {"founder_ids", no_argument, &CmdLineOpts::printFounderIds, 1},
+  {"retain_extra", required_argument, NULL, RETAIN_EXTRA},
+  {"err_rate", required_argument, NULL, ERR_RATE},
+  {"err_hom_rate", required_argument, NULL, ERR_HOM_RATE},
+  {"miss_rate", required_argument, NULL, MISS_RATE},
+  {"pseudo_hap", required_argument, NULL, PSEUDO_HAP_RATE},
+  {"founder_order", required_argument, NULL, FOUNDER_ORDER}, 
 #ifndef NOFIXEDCO
-    {"fixed_co", required_argument, NULL, FIXED_CO},
+  {"fixed_co", required_argument, NULL, FIXED_CO},
 #endif // NOFIXEDCO
-    {0, 0, 0, 0}
-  };
+  {0, 0, 0, 0}
+};
 
   // option index for getopt_long()
   int optionIndex = 0;
@@ -165,6 +169,20 @@ bool CmdLineOpts::parseCmdLineOptions(int argc, char **argv) {
 	  exit(5);
 	}
 	break;
+      case FOUNDER_ORDER:
+        if (optarg == NULL) {
+          // User provided --founder_order without a filename, keep it optional
+          printf("DEBUG: --founder_order used without argument\n"); 
+          break;
+        }
+        if (founderOrderFile != NULL) {
+          if (haveGoodArgs)
+            fprintf(stderr, "\n");
+          fprintf(stderr, "ERROR: multiple definitions of founder order file\n");
+          haveGoodArgs = false;
+        }
+        founderOrderFile = optarg;
+        break;
       case MISS_RATE:
 	missRate = strtod(optarg, &endptr);
 	setMissRate = true;
@@ -341,5 +359,10 @@ void CmdLineOpts::printUsage(FILE *out, char *programName) {
   fprintf(out, "  --retain_extra <#>\toutput samples not used as founders to VCF file\n");
   fprintf(out, "\t\t\t  numeric argument indicates number to retain\n");
   fprintf(out, "\t\t\t  a negative argument will retain all unused samples\n");
+  fprintf(out, "\n");
+  fprintf(out, "  --founder_order <filename>\tFile specifying the order of founders from the input VCF.\n");
+  fprintf(out, "\t\t\t\tThe file should have one line per founder, with each line\n");
+  fprintf(out, "\t\t\t\tcontaining the index (starting from 0) of the VCF sample\n");
+  fprintf(out, "\t\t\t\tto be used as a founder.\n");
   fprintf(out, "\n");
 }

@@ -418,7 +418,7 @@ int makeVCF(vector<SimDetails> &simDetails, Person *****theSamples,
 						    /*gzOut=*/ &out);
 		  if (idOut && curIsFounder) {
 		    // print Ped-sim id to founder id file:
-		    printSampleId(idOut, simDetails[ped], fam, gen, branch,ind);
+		    printSampleId(idOut, simDetails[ped], fam, gen, branch,ind, true);
 
 		    // since males on the X chromosome only have a defined
 		    // haplotype for haps index 1, we use that index
@@ -858,6 +858,46 @@ void getSampleIdsShuffHaps(vector<char*> &sampleIds,
     }
   }
 
+  if (CmdLineOpts::founderOrderFile != NULL) { 
+    // Read founder order from file
+    FILE *founderOrderIn = fopen(CmdLineOpts::founderOrderFile, "r");
+    if (!founderOrderIn) {
+      fprintf(stderr, "ERROR: could not open founder order file %s!\n",
+              CmdLineOpts::founderOrderFile);
+      perror("open");
+      exit(1);
+    }
+
+    shuffHaps.clear();  // Ensure shuffHaps is empty
+    int founderIdx;
+    while (fscanf(founderOrderIn, "%d\n", &founderIdx) == 1) {
+      if (founderIdx < 0 || founderIdx >= (int)sampleIds.size()*2) {
+        fprintf(stderr, "ERROR: Invalid founder index %d in founder order file.\n",
+                founderIdx);
+        exit(1);
+      }
+      shuffHaps.push_back(founderIdx);
+    }
+
+    fclose(founderOrderIn);
+
+    // Ensure that the number of founders in the file matches the requirement
+    if (shuffHaps.size() < (size_t)totalFounderHaps / 2) {
+      fprintf(stderr, "ERROR: Number of founders in the file (%zu) does not match the requirement (%d).\n",
+              shuffHaps.size(), totalFounderHaps / 2);
+      exit(1);
+    }
+
+  fprintf(stderr, "DEBUG: shuffHaps vector: ");
+  for (size_t i = 0; i < shuffHaps.size(); i++) {
+    fprintf(stderr, "%d ", shuffHaps[i]);
+  }
+  fprintf(stderr, "\n");
+
+    // *** Skip the rest of the function (shuffling logic) ***
+    return; 
+  }
+
   // Now shuffle the haplotypes. We begin by shuffling within the various sex
   // groups. We then insert these into <shuffHaps> below, respecting the order
   // of the sexes of the input samples (as now stored in <sampleSexes>).
@@ -879,7 +919,13 @@ void getSampleIdsShuffHaps(vector<char*> &sampleIds,
     curSSHapIdx[curSex]++;
   }
 
+  fprintf(stderr, "DEBUG: shuffHaps contents:\n");
+for (size_t i = 0; i < sexSpecHapIdxs[2].size(); i++) {
+  fprintf(stderr, "  sexSpecHapIdxs[2][%zu] = %d\n", i, sexSpecHapIdxs[2][i]);
+}
+
   assert(shuffHaps.size() == sampleIds.size());
+
 }
 
 

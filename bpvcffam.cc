@@ -347,6 +347,7 @@ int makeVCF(vector<SimDetails> &simDetails, Person *****theSamples,
       // assignment is after all that will be used:
       for(int i = 0; i < numInputSamples; i++) {
 	if (shuffHaps[i] < totalFounderHaps)
+    // founderSamples[5] = 10 means that the 6th VCF sample corresponds to the 10th founder
 	  founderSamples[ shuffHaps[i] / 2 ] = i;
 	else
 	  extraSamples.push_back(i);
@@ -409,6 +410,7 @@ int makeVCF(vector<SimDetails> &simDetails, Person *****theSamples,
 				branchParents, branchNumSpouses, numFounders,
 				numNonFounders);
 		int numPersons = numNonFounders + numFounders;
+    // fprintf(stderr, "fam %d gen %d branch %d\n", fam, gen, branch); // Delete
 		for(int ind = 0; ind < numPersons; ind++) {
 		  if (numSampsToPrint[gen][branch] > 0)
 		    out.printf("\t");
@@ -441,7 +443,6 @@ int makeVCF(vector<SimDetails> &simDetails, Person *****theSamples,
       }
 
       out.printf("\n");
-
       for(int o = 0; o < 2; o++) {
 	if (idOut)
 	  fprintf(outs[o], "done.\n");
@@ -553,6 +554,7 @@ int makeVCF(vector<SimDetails> &simDetails, Person *****theSamples,
       // Now break apart the genotype into the alleles of the two haplotypes
       char *alleles[2];
       char *saveptrAlleles;
+      // Iterate through the genotypes in the order of the VCF, so alleles contains a single diploid genotype
       alleles[0] = strtok_r(theGT, bar, &saveptrAlleles);
       alleles[1] = strtok_r(NULL, bar, &saveptrAlleles);
 
@@ -598,12 +600,21 @@ int makeVCF(vector<SimDetails> &simDetails, Person *****theSamples,
 	}
 	hapAlleles[numStored++] = alleles[h];
       }
-
+      // inputIndex: 0, 1, 2, ...
       int founderIndex = shuffHaps[ inputIndex ];
+      // fprintf(stderr, "founderIndex: %d\n", founderIndex); // Delete
+
       inputIndex++;
       if (founderIndex < totalFounderHaps) {
 	for(int h = 0; h < 2; h++)
+    // founderHaps contains 2xNumOfFounders and populates with the genotype
+    // founderHaps[0] is the first haplotype of the first founder
+    // founderHaps[1] is the second haplotype of the first founder
 	  founderHaps[founderIndex + h] = alleles[h];
+    // founderHaps[8] = alleles[0]; // Delete
+    // founderHaps[9] = alleles[1]; // Delete
+          fprintf(stderr, "founderIndex: %d, %d, %d\n", founderIndex, numStored, inputIndex); // Delete
+
       }
 
     }
@@ -668,13 +679,17 @@ int makeVCF(vector<SimDetails> &simDetails, Person *****theSamples,
 		    continue;
 		  }
 
+
 		  Haplotype &curHap = theSamples[ped][fam][gen][branch][ind].
 								haps[h][chrIdx];
+      // fprintf(stderr, "pos %d %d%d%d%d%d chr %d %d\n", pos, ped, fam, gen, branch, ind, chrIdx, curHap.front().endPos); // Delete
 		  while (curHap.front().endPos < pos) {
 		    pop_front(curHap);
 		  }
 		  assert(curHap.front().endPos >= pos);
+      // Basically, for each simulated person, gives us the haplotype of the founder
 		  curFounderHaps[h] = curHap.front().foundHapNum;
+      // fprintf(stderr, "hap %d founderHap %d\n", h, curFounderHaps[h]); // Delete
 		}
 		if (maleX)
 		  curFounderHaps[0] = curFounderHaps[1];
@@ -695,6 +710,7 @@ int makeVCF(vector<SimDetails> &simDetails, Person *****theSamples,
 		  continue;
 		}
 
+
 		// genotyping error?
 		if (genoErr( randomGen ) && numAlleles == 2) {
 		  int alleles[2]; // integer allele values
@@ -702,10 +718,12 @@ int makeVCF(vector<SimDetails> &simDetails, Person *****theSamples,
 		    // can get character 0 from founderHaps strings: with only
 		    // two alleles possible, these strings must have length 1.
 		    // converting to an integer is simple: subtract '0'
+        
 		    alleles[h] = founderHaps[ curFounderHaps[h] ][0] - '0';
 
+
 		  if (alleles[0] != alleles[1]) {
-		    // heterozygous: choose an allele to alter
+        		    // heterozygous: choose an allele to alter
 		    int alleleToFlip = coinFlip(randomGen);
 		    alleles[ alleleToFlip ] ^= 1;
 		  }
@@ -725,20 +743,25 @@ int makeVCF(vector<SimDetails> &simDetails, Person *****theSamples,
 			alleles[ 1^alleleToFlip ] ^= 1;
 		    }
 		  }
-
+      
 		  for(int h = 0; h < numHaps; h++)
 		    out.printf("%c%d", betweenAlleles[h],alleles[h]);
 		}
 		else { // no error: print alleles from original haplotypes
+    // Error is here
+    // fprintf(stderr, "hereeee %d %d \n", curFounderHaps[0], curFounderHaps[1]); // Delete
 		  for(int h = 0; h < numHaps; h++)
 		    out.printf("%c%s", betweenAlleles[h],
 			       founderHaps[ curFounderHaps[h] ]);
 		}
+      // fprintf(stderr, "hereeee1 %s\n", founderHaps[curFounderHaps[0]]); // Delete
 	      }
 	    }
     }
     // print data for the --retain_extra samples:
+
     for(unsigned int i = 0; i < numToRetain; i++) {
+
       int sampIdx = extraSamples[i];
       int numHaps = 2;
       if (map.isX(chrIdx) && sampleSexes[sampIdx] == 0)
@@ -749,10 +772,13 @@ int makeVCF(vector<SimDetails> &simDetails, Person *****theSamples,
     }
 
     out.printf("\n");
+    exit(5); 
   }
 
   out.close();
   in.close();
+
+  
 
   return 0;
 }
@@ -919,12 +945,11 @@ void getSampleIdsShuffHaps(vector<char*> &sampleIds,
     curSSHapIdx[curSex]++;
   }
 
-  fprintf(stderr, "DEBUG: shuffHaps contents:\n");
-for (size_t i = 0; i < sexSpecHapIdxs[2].size(); i++) {
-  fprintf(stderr, "  sexSpecHapIdxs[2][%zu] = %d\n", i, sexSpecHapIdxs[2][i]);
-}
-
-  assert(shuffHaps.size() == sampleIds.size());
+  fprintf(stderr, "DEBUG: shuffHaps vector: ");
+  for (size_t i = 0; i < shuffHaps.size(); i++) {
+    fprintf(stderr, "%d ", shuffHaps[i]);
+  }
+  fprintf(stderr, "\n");
 
 }
 

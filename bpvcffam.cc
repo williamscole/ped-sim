@@ -983,16 +983,16 @@ void getSampleIdsShuffHaps(vector<char*> &sampleIds,
     curSSHapIdx[curSex]++;
   }
 
-  fprintf(stderr, "DEBUG: shuffHaps vector of vectors:\n"); // More descriptive output
-  for (size_t i = 0; i < shuffHaps.size(); i++) {
-    fprintf(stderr, "Row %zu: ", i); // Indicate row number
+  // fprintf(stderr, "DEBUG: shuffHaps vector of vectors:\n"); // More descriptive output
+  // for (size_t i = 0; i < shuffHaps.size(); i++) {
+  //   fprintf(stderr, "Row %zu: ", i); // Indicate row number
 
-    for (size_t j = 0; j < shuffHaps[i].size(); j++) {
-      fprintf(stderr, "%d ", shuffHaps[i][j]); 
-    }
+  //   for (size_t j = 0; j < shuffHaps[i].size(); j++) {
+  //     fprintf(stderr, "%d ", shuffHaps[i][j]); 
+  //   }
 
-    fprintf(stderr, "\n"); // Newline after each row
-  }
+  //   fprintf(stderr, "\n"); // Newline after each row
+  // }
 
 }
 

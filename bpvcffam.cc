@@ -625,7 +625,7 @@ int makeVCF(vector<SimDetails> &simDetails, Person *****theSamples,
 	  founderHaps[founderIndex + h] = alleles[h];
     // founderHaps[8] = alleles[0]; // Delete
     // founderHaps[9] = alleles[1]; // Delete
-          fprintf(stderr, "founderIndex: %d, %d, %d\n", founderIndex, numStored, inputIndex); // Delete
+          // fprintf(stderr, "founderIndex: %d, %d, %d\n", founderIndex, numStored, inputIndex); // Delete
 
       }
       }
@@ -784,7 +784,7 @@ int makeVCF(vector<SimDetails> &simDetails, Person *****theSamples,
     }
 
     out.printf("\n");
-    exit(5); 
+    // exit(5); 
   }
 
   out.close();
@@ -887,14 +887,14 @@ void getSampleIdsShuffHaps(vector<char*> &sampleIds,
       exit(5);
     }
   }
-  else {
-    if (nextAnySexHap < totalFounderHaps) {
-      // Sample count is hap count / 2
-      fprintf(stderr, "\nERROR: need %d founders, but input only contains %d samples\n",
-	  totalFounderHaps / 2, nextAnySexHap / 2);
-      exit(5);
-    }
-  }
+  // else { // DELETE
+  //   if (nextAnySexHap < totalFounderHaps) {
+  //     // Sample count is hap count / 2
+  //     fprintf(stderr, "\nERROR: need %d founders, but input only contains %d samples\n",
+	//   totalFounderHaps / 2, nextAnySexHap / 2);
+  //     exit(5);
+  //   }
+  // }
 
   if (CmdLineOpts::founderOrderFile != NULL) { 
     // Read founder order from file
@@ -916,11 +916,11 @@ void getSampleIdsShuffHaps(vector<char*> &sampleIds,
         char *token = strtok(line, " \t\n");
         while (token != NULL) {
             int founderIdx = atoi(token);
-            if (founderIdx < 0 || founderIdx >= (int)sampleIds.size()*2) {
-                fprintf(stderr, "ERROR: Invalid founder index %d in founder order file.\n",
-                        founderIdx);
-                exit(1);
-            }
+            // if (founderIdx < 0 || founderIdx >= (int)sampleIds.size()*2) {
+            //     fprintf(stderr, "ERROR: Invalid founder index %d in founder order file.\n",
+            //             founderIdx);
+            //     exit(1);
+            // }
             row.push_back(founderIdx);
             token = strtok(NULL, " \t\n");
         }

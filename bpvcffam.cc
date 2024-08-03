@@ -943,14 +943,14 @@ void getSampleIdsShuffHaps(vector<char*> &sampleIds,
     }
 
     // Print debug information
-    fprintf(stderr, "DEBUG: shuffHaps vector of vectors:\n");
-    for (size_t i = 0; i < newShuffHaps.size(); i++) {
-        fprintf(stderr, "Row %zu: ", i);
-        for (size_t j = 0; j < newShuffHaps[i].size(); j++) {
-            fprintf(stderr, "%d ", newShuffHaps[i][j]);
-        }
-        fprintf(stderr, "\n");
-    }
+    // fprintf(stderr, "DEBUG: shuffHaps vector of vectors:\n");
+    // for (size_t i = 0; i < newShuffHaps.size(); i++) {
+    //     fprintf(stderr, "Row %zu: ", i);
+    //     for (size_t j = 0; j < newShuffHaps[i].size(); j++) {
+    //         fprintf(stderr, "%d ", newShuffHaps[i][j]);
+    //     }
+    //     fprintf(stderr, "\n");
+    // }
 
     // Assign the new structure to shuffHaps
     shuffHaps = move(newShuffHaps);

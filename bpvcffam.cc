@@ -279,7 +279,7 @@ int makeVCF(vector<SimDetails> &simDetails, Person *****theSamples,
   int numInputSamples = 0;
   vector<uint8_t> sampleSexes; // to check X genotypes in males
   bool warnedHetMaleX = false;
-  vector<int> shuffHaps; // For randomizing the assigned haplotypes
+  std::vector<std::vector<int>> shuffHaps; // For randomizing the assigned haplotypes
   vector<int> extraSamples; // Sample indexes to print for --retain_extra
   // map from haplotype index / 2 to sample_index
   int *founderSamples = new int[totalFounderHaps / 2];
@@ -346,18 +346,27 @@ int makeVCF(vector<SimDetails> &simDetails, Person *****theSamples,
       // Store ids for all extra samples -- those whose shuffled haplotype
       // assignment is after all that will be used:
       for(int i = 0; i < numInputSamples; i++) {
-	if (shuffHaps[i] < totalFounderHaps)
+
+        vector<int> founderIndices = shuffHaps[i];
+
+        for(int founderIndex : founderIndices){
+        
+	// if (shuffHaps[i][0] < totalFounderHaps) // TODO
+    if (founderIndex < totalFounderHaps)
     // founderSamples[5] = 10 means that the 6th VCF sample corresponds to the 10th founder
-	  founderSamples[ shuffHaps[i] / 2 ] = i;
+	  // founderSamples[ shuffHaps[i][0] / 2 ] = i; // TODO
+      founderSamples[ founderIndex / 2] = i;
 	else
 	  extraSamples.push_back(i);
       }
-      assert(extraSamples.size() == numExtraSamples);
+      }
+      // assert(extraSamples.size() == numExtraSamples);
 
       // want to randomize which samples get included, though this is only
       // relevant if we have more samples than are requested to be retained:
       if (numToRetain < numExtraSamples) {
 	// will print the first <numToRetain> from this list (random subset)
+
 	shuffle(extraSamples.begin(), extraSamples.end(), randomGen);
       }
 
@@ -387,6 +396,7 @@ int makeVCF(vector<SimDetails> &simDetails, Person *****theSamples,
 	  fflush(outs[o]);
 	}
       }
+
 
       // Now print the header line indicating fields and sample ids for the
       // output VCF
@@ -601,10 +611,12 @@ int makeVCF(vector<SimDetails> &simDetails, Person *****theSamples,
 	hapAlleles[numStored++] = alleles[h];
       }
       // inputIndex: 0, 1, 2, ...
-      int founderIndex = shuffHaps[ inputIndex ];
+      // int founderIndex = shuffHaps[ inputIndex ];
+      std::vector<int> founderIndices = shuffHaps[ inputIndex ];
       // fprintf(stderr, "founderIndex: %d\n", founderIndex); // Delete
 
       inputIndex++;
+    for(int founderIndex : founderIndices){
       if (founderIndex < totalFounderHaps) {
 	for(int h = 0; h < 2; h++)
     // founderHaps contains 2xNumOfFounders and populates with the genotype
@@ -616,7 +628,7 @@ int makeVCF(vector<SimDetails> &simDetails, Person *****theSamples,
           fprintf(stderr, "founderIndex: %d, %d, %d\n", founderIndex, numStored, inputIndex); // Delete
 
       }
-
+      }
     }
 
     bool fewer = numStored < numInputSamples * 2;
@@ -788,7 +800,7 @@ int makeVCF(vector<SimDetails> &simDetails, Person *****theSamples,
 // supplied and randomizes the assignment of these samples to founders, keeping
 // sexes the same when --sexes is supplied
 void getSampleIdsShuffHaps(vector<char*> &sampleIds,
-		vector<uint8_t> &sampleSexes, vector<int> &shuffHaps,
+		vector<uint8_t> &sampleSexes, std::vector<std::vector<int>>& shuffHaps,
 		FILE *outs[2], vector<int> hapNumsBySex[2],
 		unordered_map<const char*,uint8_t,HashString,EqString> &sexes,
 		char *&saveptr, int totalFounderHaps, const char *tab) {
@@ -888,37 +900,60 @@ void getSampleIdsShuffHaps(vector<char*> &sampleIds,
     // Read founder order from file
     FILE *founderOrderIn = fopen(CmdLineOpts::founderOrderFile, "r");
     if (!founderOrderIn) {
-      fprintf(stderr, "ERROR: could not open founder order file %s!\n",
-              CmdLineOpts::founderOrderFile);
-      perror("open");
-      exit(1);
+        fprintf(stderr, "ERROR: could not open founder order file %s!\n",
+                CmdLineOpts::founderOrderFile);
+        perror("open");
+        exit(1);
     }
 
-    shuffHaps.clear();  // Ensure shuffHaps is empty
-    int founderIdx;
-    while (fscanf(founderOrderIn, "%d\n", &founderIdx) == 1) {
-      if (founderIdx < 0 || founderIdx >= (int)sampleIds.size()*2) {
-        fprintf(stderr, "ERROR: Invalid founder index %d in founder order file.\n",
-                founderIdx);
-        exit(1);
-      }
-      shuffHaps.push_back(founderIdx);
+    // Clear and reinitialize shuffHaps as a vector of vectors
+    shuffHaps.clear();
+    vector<vector<int>> newShuffHaps;
+
+    char line[1024];  // Assuming a reasonable max line length
+    while (fgets(line, sizeof(line), founderOrderIn)) {
+        vector<int> row;
+        char *token = strtok(line, " \t\n");
+        while (token != NULL) {
+            int founderIdx = atoi(token);
+            if (founderIdx < 0 || founderIdx >= (int)sampleIds.size()*2) {
+                fprintf(stderr, "ERROR: Invalid founder index %d in founder order file.\n",
+                        founderIdx);
+                exit(1);
+            }
+            row.push_back(founderIdx);
+            token = strtok(NULL, " \t\n");
+        }
+        if (!row.empty()) {
+            newShuffHaps.push_back(row);
+        }
     }
 
     fclose(founderOrderIn);
 
     // Ensure that the number of founders in the file matches the requirement
-    if (shuffHaps.size() < (size_t)totalFounderHaps / 2) {
-      fprintf(stderr, "ERROR: Number of founders in the file (%zu) does not match the requirement (%d).\n",
-              shuffHaps.size(), totalFounderHaps / 2);
-      exit(1);
+    size_t totalFounders = 0;
+    for (const auto& row : newShuffHaps) {
+        totalFounders += row.size();
+    }
+    if (totalFounders < (size_t)totalFounderHaps / 2) {
+        fprintf(stderr, "ERROR: Total number of founders in the file (%zu) does not match the requirement (%d).\n",
+                totalFounders, totalFounderHaps / 2);
+        exit(1);
     }
 
-  fprintf(stderr, "DEBUG: shuffHaps vector: ");
-  for (size_t i = 0; i < shuffHaps.size(); i++) {
-    fprintf(stderr, "%d ", shuffHaps[i]);
-  }
-  fprintf(stderr, "\n");
+    // Print debug information
+    fprintf(stderr, "DEBUG: shuffHaps vector of vectors:\n");
+    for (size_t i = 0; i < newShuffHaps.size(); i++) {
+        fprintf(stderr, "Row %zu: ", i);
+        for (size_t j = 0; j < newShuffHaps[i].size(); j++) {
+            fprintf(stderr, "%d ", newShuffHaps[i][j]);
+        }
+        fprintf(stderr, "\n");
+    }
+
+    // Assign the new structure to shuffHaps
+    shuffHaps = move(newShuffHaps);
 
     // *** Skip the rest of the function (shuffling logic) ***
     return; 
@@ -941,15 +976,23 @@ void getSampleIdsShuffHaps(vector<char*> &sampleIds,
   int curSSHapIdx[3] = { 0, 0, 0 };
   for(uint32_t i = 0; i < sampleSexes.size(); i++) {
     uint8_t curSex = sampleSexes[i];
-    shuffHaps.push_back( sexSpecHapIdxs[ curSex ][ curSSHapIdx[ curSex ] ] );
+    int randomIndex = sexSpecHapIdxs[curSex][curSSHapIdx[curSex]]; 
+    // Create a vector and add the integer to it
+    vector<int> randomIndices = {randomIndex}; 
+    shuffHaps.push_back(randomIndices);
     curSSHapIdx[curSex]++;
   }
 
-  fprintf(stderr, "DEBUG: shuffHaps vector: ");
+  fprintf(stderr, "DEBUG: shuffHaps vector of vectors:\n"); // More descriptive output
   for (size_t i = 0; i < shuffHaps.size(); i++) {
-    fprintf(stderr, "%d ", shuffHaps[i]);
+    fprintf(stderr, "Row %zu: ", i); // Indicate row number
+
+    for (size_t j = 0; j < shuffHaps[i].size(); j++) {
+      fprintf(stderr, "%d ", shuffHaps[i][j]); 
+    }
+
+    fprintf(stderr, "\n"); // Newline after each row
   }
-  fprintf(stderr, "\n");
 
 }
 

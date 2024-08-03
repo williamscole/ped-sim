@@ -31,7 +31,7 @@ int makeVCF(vector<SimDetails> &simDetails, Person *****theSamples,
 	    GeneticMap &map, FILE *outs[2], vector<int> hapNumsBySex[2],
 	    unordered_map<const char*,uint8_t,HashString,EqString> &sexes);
 void getSampleIdsShuffHaps(vector<char*> &sampleIds,
-		vector<uint8_t> &sampleSexes, vector<int> &shuffHaps,
+		vector<uint8_t> &sampleSexes, std::vector<std::vector<int>>& shuffHaps,
 		FILE *outs[2], vector<int> hapNumsBySex[2],
 		unordered_map<const char*,uint8_t,HashString,EqString> &sexes,
 		char *&saveptr, int totalFounderHaps, const char *tab);

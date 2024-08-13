@@ -5,6 +5,7 @@ import itertools as it
 from collections import Counter
 import networkx as nx
 import argparse
+import os
 
 class Bins:
     def __init__(self, bins, binProbs):
@@ -110,17 +111,20 @@ class KING:
                     m, n = self.unrelated[0][i], self.unrelated[1][i]
                     if m == n:
                         i = -1
-                    if m > self.orig_n or n > self.orig_n:
+                    if m >= self.orig_n or n >= self.orig_n:
                         i = -1
                 return self.unrelated[0][i], self.unrelated[1][i]
 
-            randBin = tmp if self.binCounts[:, tmp].sum() > 0 else -1
+            randBin = tmp if self.binCounts[:self.orig_n, tmp].sum() > 0 else -1
 
-            m = np.random.choice(np.where(self.binCounts[:,randBin]>0)[0], 1)[0]
+            m = np.random.choice(np.where(self.binCounts[:self.orig_n, randBin]>0)[0], 1)[0]
+
+            # if m >= self.orig_n:
+            #     randBin = -1
 
             if checkAgainstFounders:
                 for n in checkAgainstFounders:
-                    if self.kinArray[m, n] > self.maxPropIBD:
+                    if self.kinArray[m, n] > self.maxPropIBD or m == n:
                         randBin = -1
                         break
     
@@ -143,9 +147,9 @@ class KING:
             if m >= self.orig_n:
                 randBin = -1
 
-            if checkAgainstFounders and randBin > 0:
+            if checkAgainstFounders and randBin > -1:
                 for n in checkAgainstFounders:
-                    if self.kinArray[m, n] > self.maxPropIBD:
+                    if self.kinArray[m, n] > self.maxPropIBD or m == n:
                         randBin = -1
                         break
         
@@ -156,9 +160,18 @@ class KING:
             self.founderColumn[idx].append(self.nth_founder)
             self.nth_founder += 2
 
-    def printSamples(self):
+    def printSamples(self, output):
+        outp = []
         for sample, founders in zip(self.samples[:self.orig_n], self.founderColumn):
-            print(f"{sample} {' '.join([str(i) for i in founders])}")
+            if len(founders) == 0:
+                founders = [self.nth_founder]
+                self.nth_founder += 2
+            outp.append(' '.join([str(i) for i in founders]))
+
+        i = open(f"{output}_haplotypes.txt", "w")
+        i.write("\n".join(outp))
+        i.close()
+        
 
 
 
@@ -204,15 +217,17 @@ class FamGraph:
                         g.nodes[node]["idx"] = n1; g.nodes[spouse]["idx"] = n2
                     if idx == -1 and spouse_idx > -1:
                         n1 = king.randomFounder(spouse_idx, founders)
+                        founders.append(n1)
                         g.nodes[node]["idx"] = n1
         return g, founders
 
 
-    def findFounders(self, king):
+    def findFounders(self, king, output, iter_n):
         founders = []
         return_g = self.g.copy()
 
         return_g, founders = self.addSpouses(return_g, founders)
+
 
         # Get non-founder nodes
         needsIndex = [node for node, data in return_g.nodes(data=True) if not data["founder"]]
@@ -228,8 +243,6 @@ class FamGraph:
                     return_g, founders = self.addSpouses(return_g, founders)
                     break
     
-
-
         couples = set()
         for node, data in return_g.nodes(data=True):
             for spouse in data["spouse"]:
@@ -243,8 +256,17 @@ class FamGraph:
         tmp = pd.concat([tmp, decomposedIds], axis=1)
         tmp["id1"] = tmp["idx"].apply(lambda x: king.samples[x])
 
+        assert tmp.shape[0] == tmp.drop_duplicates("id1").shape[0]
+
         tmp = tmp.sort_values(["g", "b", "ind1", "ind2"])
-        king.addFounders(tmp["idx"].values)                    
+        king.addFounders(tmp["idx"].values)
+        tmp[0] = tmp[0].apply(lambda x: x.replace("1_", f"{iter_n+1}_"))
+
+        log_write = "\n".join(tmp.apply(lambda x: f"{x[0]} {x.id1}", axis=1).values)
+        i = open(f"{output}.log", "a")
+        i.write(log_write + "\n")
+        i.close()
+
 
 
 def readFam(famFile):
@@ -277,7 +299,7 @@ def parse_args():
                         default=[-1, 0, 0.04, 0.08, 0.12, 0.25, 1])
     
     parser.add_argument("--bin_probs", nargs="*", type=float,
-                        default=[0.6, 0.25, 0.10, 0.03, 0.01, 0.02],
+                        default=[0.6, 0.25, 0.10, 0.03, 0.01, 0.01],
                         help="The corresponding probability of each bin in --bins.")
     
     parser.add_argument("--max_PropIBD", required=False, type=float, default=0.1,
@@ -286,6 +308,8 @@ def parse_args():
     parser.add_argument("--n_simulations", required=True, type=int,
                         help="The number of simulations that you wish to perform on a given genealogy. Must provide this for each .fam file provided.",
                         nargs="*")
+
+    parser.add_argument("--output", help="Output path/file name prefix.", default="Samples")
     
     args = parser.parse_args()
 
@@ -296,7 +320,7 @@ if __name__ == "__main__":
 
     args = parse_args()
 
-    assert round(sum(args.binProbability), 8) == 1
+    assert round(sum(args.bin_probs), 8) == 1
     assert len(args.bin_probs) == (len(args.bins) - 1)
     assert len(args.n_simulations) == len(args.fam)
 
@@ -306,6 +330,8 @@ if __name__ == "__main__":
     founderColumn = [[] for _ in samples]
     nth_founder = 0
 
+    if os.path.exists(f"{args.output}.log"):
+        os.remove(f"{args.output}.log")
 
     for iter_num, famFile in zip(args.n_simulations, args.fam):
 
@@ -320,15 +346,17 @@ if __name__ == "__main__":
                     bins=bins,
                     samplesList=samples,
                     samplesToAdd=samplesToAdd,
-                    maxPropIBD=args.maxPropIBD)
+                    maxPropIBD=args.max_PropIBD)
         
         king.founderColumn = founderColumn
         king.nth_founder = nth_founder
         
-        for _ in range(iter_num):
-            famG.findFounders(king)
+        for n in range(iter_num):
+            famG.findFounders(king, args.output, n)
 
         founderColumn = king.founderColumn
         nth_founder = king.nth_founder
+
+    king.printSamples(args.output)
 
         
